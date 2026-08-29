@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""下载一份小型 LeRobot v3.0 机器人 VLA 数据到 lerobot/demo，供本地分析。
+"""下载一份小型 LeRobot v3.0 机器人 VLA 数据到 lerobot/datasets，供本地分析。
 
 默认数据集: lerobot/svla_so100_pickplace
   - SmolVLA 论文使用的 SO-100 抓放示范
@@ -9,16 +9,16 @@
 
 用法（先激活 conda 环境 autolabel）::
 
-    python lerobot/demo/download_vla_v3.py
-    python lerobot/demo/download_vla_v3.py --inspect-only
-    HF_ENDPOINT=https://hf-mirror.com python lerobot/demo/download_vla_v3.py
+    python lerobot/script/1.download_lerobot_vla_v3.py
+    python lerobot/script/1.download_lerobot_vla_v3.py --inspect-only
+    python lerobot/script/1.download_lerobot_vla_v3.py --endpoint https://hf-mirror.com
 
 加载已下载数据::
 
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
     ds = LeRobotDataset(
         "lerobot/svla_so100_pickplace",
-        root="lerobot/demo/datasets/svla_so100_pickplace",
+        root="lerobot/datasets/svla_so100_pickplace",
     )
 """
 
@@ -30,15 +30,14 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _patch_multiprocess  # noqa: F401  # Python 3.12.0 + multiprocess 退出报错
-
-demo_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).resolve().parent
+LEROBOT_DIR = SCRIPT_DIR.parent
+DATASETS_DIR = LEROBOT_DIR / "datasets"
 DEFAULT_REPO_ID = "lerobot/svla_so100_pickplace"
-DEFAULT_ROOT = demo_DIR / "datasets" / "svla_so100_pickplace"
-# 避免写入 ~/.cache/huggingface（可能无权限）；缓存与数据都放在 demo 下
-os.environ.setdefault("HF_HOME", str(demo_DIR / ".hf_cache"))
-os.environ.setdefault("HF_HUB_CACHE", str(demo_DIR / ".hf_cache" / "hub"))
+DEFAULT_ROOT = DATASETS_DIR / "svla_so100_pickplace"
+# 避免写入 ~/.cache/huggingface（可能无权限）；Hub 缓存放在 lerobot 下，不混进数据集目录
+os.environ.setdefault("HF_HOME", str(LEROBOT_DIR / ".hf_cache"))
+os.environ.setdefault("HF_HUB_CACHE", str(LEROBOT_DIR / ".hf_cache" / "hub"))
 
 
 def _human_bytes(n: int) -> str:
@@ -161,7 +160,7 @@ def inspect(ds, root: Path) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="下载小型 LeRobot v3.0 VLA 数据集到 lerobot/demo")
+    p = argparse.ArgumentParser(description="下载小型 LeRobot v3.0 VLA 数据集到 lerobot/datasets")
     p.add_argument("--repo-id", default=DEFAULT_REPO_ID, help="Hugging Face 数据集 id")
     p.add_argument(
         "--root",
@@ -193,9 +192,9 @@ def main() -> int:
         print(f"[失败] {e}", file=sys.stderr)
         if os.environ.get("HF_ENDPOINT"):
             print("当前使用了 HF_ENDPOINT。镜像若不完整，可改为官方源:", file=sys.stderr)
-            print("  python lerobot/demo/download_vla_v3.py --endpoint https://huggingface.co", file=sys.stderr)
+            print("  python lerobot/script/1.download_lerobot_vla_v3.py --endpoint https://huggingface.co", file=sys.stderr)
         else:
-            print("若 Hub 超时: python lerobot/demo/download_vla_v3.py --endpoint https://hf-mirror.com", file=sys.stderr)
+            print("若 Hub 超时: python lerobot/script/1.download_lerobot_vla_v3.py --endpoint https://hf-mirror.com", file=sys.stderr)
         return 1
     return 0
 

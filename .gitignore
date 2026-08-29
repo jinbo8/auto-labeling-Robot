@@ -1,7 +1,7 @@
 # 本地 / 开源克隆（不入仓）
 opensource/
 local/
-
+lerobot/.hf_cache
 # # Python
 # __pycache__/
 # *.py[cod]

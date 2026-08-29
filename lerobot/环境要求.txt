@@ -15,7 +15,7 @@ cd lerobot
 pip install -e ".[core_scripts]"  # For robot workflows (recording, replaying, calibrate)
 pip install -e ".[training]"      # For training policies
 pip install -e ".[all]"           # Everything (all policies, envs, hardware, dev tools)
-
+pip install matplotlib
 
 
 # 4.install安装方式二
