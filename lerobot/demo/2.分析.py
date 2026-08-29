@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _patch_multiprocess  # noqa: F401  # Python 3.12.0 + multiprocess 退出报错
 
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 

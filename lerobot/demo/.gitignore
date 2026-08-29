@@ -1,7 +1,7 @@
 # 下载的数据集本体与 Hub 缓存不入库
-# datasets/
-.hf_cache/
-# *.mp4
-# *.parquet
-# *.json
-# !download_vla_v3.py
+datasets/
+# .hf_cache/
+*.mp4
+*.parquet
+*.json
+!download_vla_v3.py
