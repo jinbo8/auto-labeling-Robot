@@ -6,6 +6,8 @@ For thousands of hours: keep --sample-fps low (0.5–2) and shard videos across 
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import av
@@ -50,10 +52,15 @@ def analyze_video_quality(
     cfg: QualityConfig,
     episode_spans: list[tuple[int, float, float]] | None = None,
     container_fps: float | None = None,
+    on_clip_done: Callable[[dict], None] | None = None,
 ) -> tuple[dict, pd.DataFrame]:
-    """Return (file_summary, per-episode quality dataframe)."""
+    """Return (file_summary, per-episode quality dataframe).
+
+    ``on_clip_done`` is called after each episode span in this file is finished.
+    """
     episode_spans = episode_spans or []
     acc: dict[int, dict[str, list]] = {}
+    clip_elapsed: dict[int, float] = {}
     for ep_i, _, _ in episode_spans:
         acc[ep_i] = {k: [] for k in ("blur", "brightness", "contrast", "dark", "sat", "l1")}
 
@@ -65,6 +72,23 @@ def analyze_video_quality(
     width = height = None
     fps = container_fps
     stride = 1
+    last_ep: int | None = None
+    clip_t0 = time.perf_counter()
+    clip_n_sampled = 0
+
+    def finish_clip(ep_i: int) -> None:
+        nonlocal clip_t0, clip_n_sampled
+        elapsed = time.perf_counter() - clip_t0
+        clip_elapsed[ep_i] = clip_elapsed.get(ep_i, 0.0) + elapsed
+        rec = {
+            "episode_index": ep_i,
+            "elapsed_s": round(clip_elapsed[ep_i], 6),
+            "n_sampled": clip_n_sampled,
+        }
+        if on_clip_done is not None:
+            on_clip_done(rec)
+        clip_t0 = time.perf_counter()
+        clip_n_sampled = 0
 
     try:
         container = av.open(video_path)
@@ -78,7 +102,7 @@ def analyze_video_quality(
         batch_t: list[float] = []
 
         def flush() -> None:
-            nonlocal prev_gray
+            nonlocal prev_gray, last_ep, clip_n_sampled
             if not batch_cpu:
                 return
             arr = np.stack(batch_cpu, axis=0)
@@ -100,11 +124,18 @@ def analyze_video_quality(
                 rec["l1"] = float(l1n[i])
                 for k, v in rec.items():
                     file_vals[k].append(v)
+                matched = None
                 for ep_i, a, b in episode_spans:
                     if a <= ts < b or (ts >= a and abs(ts - b) < 1e-3):
+                        matched = ep_i
                         for k, v in rec.items():
                             acc[ep_i][k].append(v)
                         break
+                if matched is not None:
+                    if last_ep is not None and matched != last_ep:
+                        finish_clip(last_ep)
+                    last_ep = matched
+                    clip_n_sampled += 1
             batch_cpu.clear()
             batch_t.clear()
 
@@ -122,6 +153,8 @@ def analyze_video_quality(
             if len(batch_cpu) >= cfg.batch_size:
                 flush()
         flush()
+        if last_ep is not None:
+            finish_clip(last_ep)
         container.close()
     except Exception as e:
         error = str(e)
@@ -168,6 +201,7 @@ def analyze_video_quality(
                 "sat_pct": _pct(bkt["sat"], lambda a: a > 0.3),
                 "frozen_pct": _pct(bkt["l1"], lambda a: a < cfg.frozen_l1),
                 "blurry_pct": _pct(bkt["blur"], lambda a: a < cfg.blur_thresh),
+                "elapsed_s": clip_elapsed.get(ep_i),
             }
         )
     return file_summary, pd.DataFrame(ep_rows)
