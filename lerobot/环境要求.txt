@@ -1,0 +1,37 @@
+# 1.huggingface 官方文档
+https://huggingface.co/docs/lerobot/installation?install_ffmpeg=conda+%28any+PyTorch+version%29
+
+# 2.环境安装
+
+conda create -y -n lerobot python=3.12
+conda activate lerobot
+
+# 依赖一起装好：conda 会把库、二进制、系统依赖一并解决，适合 ffmpeg、CUDA 相关库这类“不只是 Python 包”的东西。
+conda install ffmpeg -c conda-forge
+
+# 3.install安装方式一
+git clone https://github.com/huggingface/lerobot.git
+cd lerobot
+pip install -e ".[core_scripts]"  # For robot workflows (recording, replaying, calibrate)
+pip install -e ".[training]"      # For training policies
+pip install -e ".[all]"           # Everything (all policies, envs, hardware, dev tools)
+
+
+
+# 4.install安装方式二
+pip install 'lerobot[core_scripts]'          # Record, replay, calibrate
+pip install 'lerobot[training]'              # Train policies
+pip install 'lerobot[core_scripts,training]' # Record + train
+pip install 'lerobot[all]'                   # Everything
+
+针对特定依赖项，策略、环境和硬件方面的额外选项仍然可用：
+pip install 'lerobot[pi]'             # Pi0/Pi0.5/Pi0-FAST policy deps
+pip install 'lerobot[smolvla]'        # SmolVLA policy deps
+pip install 'lerobot[diffusion]'      # Diffusion policy deps (diffusers)
+pip install 'lerobot[aloha,pusht]'    # Simulation environments
+pip install 'lerobot[feetech]'        # Feetech motor support
+
+# 5.故障排除
+如果遇到构建错误，您可能需要安装其他系统依赖项：cmake、build-essential和ffmpeg libs。要在 Linux 系统上安装这些依赖项，请运行：
+
+sudo apt-get install cmake build-essential python3-dev pkg-config libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev
