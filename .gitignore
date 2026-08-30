@@ -2,6 +2,7 @@
 opensource/
 local/
 lerobot/.hf_cache
+lerobot/run
 # # Python
 # __pycache__/
 # *.py[cod]
