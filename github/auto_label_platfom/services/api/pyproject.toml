@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alp-api"
+version = "0.1.0"
+description = "Auto Label Platform API"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "sqlalchemy>=2.0.30",
+  "pydantic>=2.7.0",
+  "pydantic-settings>=2.3.0",
+  "python-jose[cryptography]>=3.3.0",
+  "passlib[bcrypt]>=1.7.4",
+  "bcrypt>=4.0.1,<4.1",
+  "httpx>=0.27.0",
+  "email-validator>=2.1.0",
+  "python-multipart>=0.0.9",
+  "lerobot-index",
+  "alp-worker",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+alp-api = "alp_api.cli:main"

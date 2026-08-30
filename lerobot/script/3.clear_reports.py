@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """一键清空文件夹内所有内容（保留文件夹本身）。
 
-默认目标: lerobot/script/reports
+默认目标: lerobot/run
 
 用法::
 
@@ -17,7 +17,7 @@ import shutil
 import sys
 from pathlib import Path
 
-DEFAULT_TARGET = Path(__file__).resolve().parent / "reports"
+DEFAULT_TARGET = Path(__file__).resolve().parent.parent / "run"
 
 
 def clear_dir(target: Path) -> int:
@@ -41,7 +41,7 @@ def clear_dir(target: Path) -> int:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="清空文件夹内全部内容，默认 reports")
+    p = argparse.ArgumentParser(description="清空文件夹内全部内容，默认 lerobot/run")
     p.add_argument("--path", type=Path, default=DEFAULT_TARGET, help="要清空的目录")
     p.add_argument("--yes", action="store_true", help="非默认目录时必须加此参数确认")
     return p.parse_args()

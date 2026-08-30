@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alp-worker"
+version = "0.1.0"
+description = "Auto Label Platform workers (QA / prelabel / export helpers)"
+requires-python = ">=3.11"
+dependencies = [
+  "lerobot-index",
+  "httpx>=0.27.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

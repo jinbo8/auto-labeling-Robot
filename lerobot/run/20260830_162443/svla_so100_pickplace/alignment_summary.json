@@ -1,0 +1,19 @@
+{
+  "dataset": "svla_so100_pickplace",
+  "root": "/home/jin/6t/item/auto-labeling-Robot/lerobot/datasets/svla_so100_pickplace",
+  "codebase_version": "v3.0",
+  "robot_type": "so100",
+  "meta_fps": 30.0,
+  "cameras": [
+    "observation.images.top",
+    "observation.images.wrist"
+  ],
+  "n_episodes": 50,
+  "n_frames_meta": 19631,
+  "n_align_rows": 100,
+  "pct_len_ok": 100.0,
+  "pct_span_ok": 100.0,
+  "pct_fps_ok": 100.0,
+  "max_cross_camera_mismatch_s": 0.0,
+  "n_video_errors": 0
+}

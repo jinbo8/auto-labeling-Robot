@@ -13,7 +13,13 @@ import torch
 import torch.multiprocessing as mp
 
 from .align import analyze_alignment
-from .paths import DEFAULT_DATASETS_DIR, DEFAULT_REPORTS_DIR, discover_datasets
+from .paths import (
+    DEFAULT_DATASETS_DIR,
+    DEFAULT_REPORTS_DIR,
+    discover_datasets,
+    finalize_run_dir,
+    make_staging_dir,
+)
 from .quality import QualityConfig, analyze_video_quality
 
 
@@ -333,12 +339,20 @@ def run(cfg: RunConfig) -> list[dict]:
     roots = discover_datasets(cfg.datasets_dir)
     if not roots:
         raise FileNotFoundError(f"no LeRobot datasets under {cfg.datasets_dir}")
-    gpu_ids = _parse_gpus(cfg.gpus)
-    reports = []
-    for root in roots:
-        reports.append(analyze_one(root, cfg, gpu_ids))
-    (cfg.out_dir / "summary.json").write_text(json.dumps(reports, indent=2, ensure_ascii=False), encoding="utf-8")
-    return reports
+    run_root = cfg.out_dir
+    staging = make_staging_dir(run_root)
+    cfg.out_dir = staging
+    try:
+        gpu_ids = _parse_gpus(cfg.gpus)
+        reports = []
+        for root in roots:
+            reports.append(analyze_one(root, cfg, gpu_ids))
+        (cfg.out_dir / "summary.json").write_text(
+            json.dumps(reports, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        return reports
+    finally:
+        cfg.out_dir = finalize_run_dir(staging, run_root)
 
 
 def print_report(reports: list[dict]) -> None:

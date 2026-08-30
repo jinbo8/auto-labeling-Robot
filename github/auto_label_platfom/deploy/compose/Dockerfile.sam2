@@ -1,0 +1,7 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY services/sam2 services/sam2
+RUN pip install --no-cache-dir -e services/sam2
+ENV PYTHONPATH=/app/services/sam2/src
+EXPOSE 8102
+CMD ["uvicorn", "alp_sam2.main:app", "--host", "0.0.0.0", "--port", "8102"]

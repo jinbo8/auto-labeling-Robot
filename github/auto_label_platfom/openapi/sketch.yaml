@@ -1,0 +1,795 @@
+openapi: 3.0.3
+info:
+  title: Auto Label Platform API (sketch)
+  description: |
+    核心 REST 端点草图，供 MVP 开工对齐。非完整实现规范；
+    认证均为 Bearer JWT。机器人垂直：LeRobot v3 + SAM2/SAM3。
+  version: 0.1.0-sketch
+
+servers:
+  - url: /api/v1
+
+tags:
+  - name: auth
+  - name: projects
+  - name: ontology
+  - name: imports
+  - name: episodes
+  - name: qa
+  - name: jobs
+  - name: annotations
+  - name: review
+  - name: exports
+  - name: models
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+
+    Role:
+      type: string
+      enum: [owner, manager, annotator, reviewer]
+
+    Project:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        robot_type: { type: string, nullable: true }
+        fps: { type: number }
+        camera_keys:
+          type: array
+          items: { type: string }
+        ontology_version_id: { type: string, format: uuid, nullable: true }
+        settings:
+          type: object
+          additionalProperties: true
+
+    OntologyDocument:
+      type: object
+      description: JSON ontology (Label Studio–inspired, not XML)
+      properties:
+        version: { type: integer }
+        labels:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              color: { type: string }
+              tools:
+                type: array
+                items: { type: string }
+              prompt_text: { type: string, nullable: true }
+
+    DatasetImport:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        source_uri: { type: string }
+        format:
+          type: string
+          enum: [lerobot_v3]
+        status:
+          type: string
+          enum: [pending, indexing, ready, failed]
+        meta_snapshot: { type: object, additionalProperties: true }
+        qa_report_id: { type: string, format: uuid, nullable: true }
+
+    Episode:
+      type: object
+      properties:
+        episode_index: { type: integer }
+        length: { type: integer }
+        duration_s: { type: number }
+        task_index: { type: integer, nullable: true }
+        task_text: { type: string, nullable: true }
+        video_refs: { type: object, additionalProperties: true }
+
+    EpisodeJob:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        episode_index: { type: integer }
+        status:
+          type: string
+          enum:
+            - created
+            - prelabeled
+            - annotating
+            - submitted
+            - in_review
+            - accepted
+            - rejected
+        assignee_id: { type: string, format: uuid, nullable: true }
+        camera_filter:
+          type: array
+          items: { type: string }
+          nullable: true
+
+    Geometry:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [bbox, polygon, mask]
+        bbox:
+          type: array
+          items: { type: number }
+          minItems: 4
+          maxItems: 4
+          description: "[x, y, w, h] in pixels unless project says normalized"
+        polygon:
+          type: array
+          items:
+            type: array
+            items: { type: number }
+        rle: { type: string, nullable: true }
+
+    Annotation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        frame_index: { type: integer }
+        camera_key: { type: string }
+        track_id: { type: string, nullable: true }
+        label: { type: string }
+        geometry: { $ref: "#/components/schemas/Geometry" }
+        attributes: { type: object, additionalProperties: true }
+        source:
+          type: string
+          enum: [human, sam2, sam3, yolo, vlm]
+
+    Prediction:
+      allOf:
+        - $ref: "#/components/schemas/Annotation"
+        - type: object
+          properties:
+            score: { type: number }
+            model_name: { type: string }
+            model_version: { type: string }
+            prompt: { type: object, additionalProperties: true }
+
+    QaReportSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string }
+        summary: { type: object, additionalProperties: true }
+        artifact_uri: { type: string, nullable: true }
+
+    ExportJob:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        formats:
+          type: array
+          items:
+            type: string
+            enum: [coco, yolo, lerobot_sidecar]
+        status:
+          type: string
+          enum: [pending, running, ready, failed]
+        artifact_uri: { type: string, nullable: true }
+
+    Sam2PredictRequest:
+      type: object
+      required: [image_id]
+      properties:
+        image_id: { type: string }
+        points:
+          type: array
+          items:
+            type: object
+            properties:
+              x: { type: number }
+              y: { type: number }
+              label: { type: integer, enum: [0, 1] }
+        boxes:
+          type: array
+          items:
+            type: array
+            items: { type: number }
+            minItems: 4
+            maxItems: 4
+        multimask: { type: boolean, default: false }
+
+    Sam3PredictRequest:
+      type: object
+      required: [image_id, text]
+      properties:
+        image_id: { type: string }
+        text: { type: string }
+        multimask: { type: boolean, default: true }
+
+    ModelPredictResponse:
+      type: object
+      properties:
+        masks:
+          type: array
+          items: { $ref: "#/components/schemas/Geometry" }
+        boxes:
+          type: array
+          items:
+            type: array
+            items: { type: number }
+        scores:
+          type: array
+          items: { type: number }
+        latency_ms: { type: number }
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [auth]
+      security: []
+      summary: Login and obtain JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  token_type: { type: string, example: bearer }
+                  role: { $ref: "#/components/schemas/Role" }
+
+  /projects:
+    get:
+      tags: [projects]
+      summary: List projects in current tenant
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Project" }
+    post:
+      tags: [projects]
+      summary: Create project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                robot_type: { type: string }
+                fps: { type: number }
+                camera_keys:
+                  type: array
+                  items: { type: string }
+                settings: { type: object }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+
+  /projects/{project_id}:
+    get:
+      tags: [projects]
+      summary: Get project
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+
+  /projects/{project_id}/ontology:
+    get:
+      tags: [ontology]
+      summary: Get active ontology document
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OntologyDocument" }
+    put:
+      tags: [ontology]
+      summary: Replace ontology (creates new version)
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OntologyDocument" }
+      responses:
+        "200":
+          description: OK
+
+  /projects/{project_id}/imports:
+    post:
+      tags: [imports]
+      summary: Import LeRobot v3 dataset
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_uri]
+              properties:
+                source_uri: { type: string }
+                format:
+                  type: string
+                  enum: [lerobot_v3]
+                  default: lerobot_v3
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DatasetImport" }
+    get:
+      tags: [imports]
+      summary: List imports
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DatasetImport" }
+
+  /projects/{project_id}/episodes:
+    get:
+      tags: [episodes]
+      summary: List indexed episodes
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Episode" }
+
+  /projects/{project_id}/qa:
+    post:
+      tags: [qa]
+      summary: Trigger dataset QA job
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                align_only: { type: boolean, default: false }
+                sample_fps: { type: number, default: 2 }
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QaReportSummary" }
+
+  /projects/{project_id}/qa/{report_id}:
+    get:
+      tags: [qa]
+      summary: Get QA report summary
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: report_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QaReportSummary" }
+
+  /projects/{project_id}/prelabel:
+    post:
+      tags: [jobs]
+      summary: Enqueue batch prelabel (SAM3/SAM2 strategies)
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                strategy:
+                  type: string
+                  enum:
+                    - sam3_text_keyframes
+                    - sam3_then_sam2_track
+                    - interactive_only
+                episode_indices:
+                  type: array
+                  items: { type: integer }
+                min_score: { type: number, default: 0.5 }
+                frame_stride: { type: integer, default: 15 }
+      responses:
+        "202":
+          description: Accepted
+
+  /projects/{project_id}/jobs/split:
+    post:
+      tags: [jobs]
+      summary: Split episodes into EpisodeJobs
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                episode_from: { type: integer }
+                episode_to: { type: integer }
+                assignee_id: { type: string, format: uuid, nullable: true }
+                skip_qa_failed: { type: boolean, default: true }
+                camera_filter:
+                  type: array
+                  items: { type: string }
+      responses:
+        "201":
+          description: Created jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created: { type: integer }
+                  jobs:
+                    type: array
+                    items: { $ref: "#/components/schemas/EpisodeJob" }
+
+  /jobs:
+    get:
+      tags: [jobs]
+      summary: List jobs (filter by assignee/status/project)
+      parameters:
+        - name: project_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: mine
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/EpisodeJob" }
+
+  /jobs/{job_id}:
+    get:
+      tags: [jobs]
+      summary: Job detail including media refs summary
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EpisodeJob"
+                  - type: object
+                    properties:
+                      episode: { $ref: "#/components/schemas/Episode" }
+                      preview_uris: { type: object, additionalProperties: { type: string } }
+
+  /jobs/{job_id}/annotations:
+    get:
+      tags: [annotations]
+      summary: List annotations for job (optional frame window)
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: frame_from
+          in: query
+          schema: { type: integer }
+        - name: frame_to
+          in: query
+          schema: { type: integer }
+        - name: camera_key
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Annotation" }
+    put:
+      tags: [annotations]
+      summary: Replace annotations in a frame window (optimistic lock via If-Match later)
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: "#/components/schemas/Annotation" }
+      responses:
+        "200":
+          description: OK
+
+  /jobs/{job_id}/predictions:
+    get:
+      tags: [annotations]
+      summary: List model predictions for job
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Prediction" }
+
+  /jobs/{job_id}/predictions/accept:
+    post:
+      tags: [annotations]
+      summary: Promote predictions to annotations
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prediction_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                min_score: { type: number }
+      responses:
+        "200":
+          description: OK
+
+  /jobs/{job_id}/submit:
+    post:
+      tags: [jobs]
+      summary: Annotator submits job for review
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EpisodeJob" }
+
+  /jobs/{job_id}/review:
+    post:
+      tags: [review]
+      summary: Reviewer accept or reject
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [accept, reject]
+                issues:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      frame_index: { type: integer }
+                      camera_key: { type: string }
+                      type: { type: string }
+                      message: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /projects/{project_id}/exports:
+    post:
+      tags: [exports]
+      summary: Create export job
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                formats:
+                  type: array
+                  items:
+                    type: string
+                    enum: [coco, yolo, lerobot_sidecar]
+                only_accepted: { type: boolean, default: true }
+                include_cameras:
+                  type: array
+                  items: { type: string }
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportJob" }
+
+  /projects/{project_id}/exports/{export_id}:
+    get:
+      tags: [exports]
+      summary: Export job status / download URI
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: export_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExportJob" }
+
+  /models/sam2/predict:
+    post:
+      tags: [models]
+      summary: Interactive SAM2 image predict (API gateway proxies to sam2-service)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Sam2PredictRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModelPredictResponse" }
+
+  /models/sam3/predict:
+    post:
+      tags: [models]
+      summary: Interactive SAM3 text/concept predict
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Sam3PredictRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModelPredictResponse" }

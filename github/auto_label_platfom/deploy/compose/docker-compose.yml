@@ -1,0 +1,45 @@
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      ALP_DATABASE_URL: sqlite:////data/alp.db
+      ALP_ARTIFACTS_DIR: /data/artifacts
+      ALP_SAM2_URL: http://sam2:8102
+      ALP_SAM3_URL: http://sam3:8103
+      ALP_CORS_ORIGINS: "*"
+    volumes:
+      - alp_data:/data
+      - ../../../../lerobot/datasets:/datasets:ro
+    depends_on:
+      - sam2
+      - sam3
+
+  sam2:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.sam2
+    ports:
+      - "8102:8102"
+
+  sam3:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.sam3
+    ports:
+      - "8103:8103"
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.web
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+volumes:
+  alp_data:

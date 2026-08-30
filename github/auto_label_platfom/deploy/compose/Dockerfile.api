@@ -1,0 +1,11 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+COPY packages/lerobot_index packages/lerobot_index
+COPY services/worker services/worker
+COPY services/api services/api
+RUN pip install --no-cache-dir -r requirements.txt \
+ && pip install --no-cache-dir -e packages/lerobot_index -e services/worker -e services/api
+ENV PYTHONPATH=/app/services/api/src:/app/packages/lerobot_index/src:/app/services/worker/src
+EXPOSE 8000
+CMD ["uvicorn", "alp_api.main:app", "--host", "0.0.0.0", "--port", "8000"]

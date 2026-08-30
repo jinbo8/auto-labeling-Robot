@@ -1,4 +1,4 @@
-"""Save analysis charts under reports/<dataset>/plots/."""
+"""Save analysis charts under <run>/<dataset>/plots/."""
 
 from __future__ import annotations
 
