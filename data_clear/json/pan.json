@@ -1,0 +1,17 @@
+[
+    {
+        "id": 2486,
+        "meta_data": {
+            "original_dataset": "bridge",
+            "original_width": 640,
+            "original_height": 480
+        },
+        "instruction": "place the red fork to the left of the left burner",
+        "affordance": {
+            "x": 352.87425387858815,
+            "y": 186.47871614766484,
+            "width": 19.296008229513156,
+            "height": 14.472006172134865
+        }
+    }
+]

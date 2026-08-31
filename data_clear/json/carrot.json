@@ -1,0 +1,17 @@
+[
+    {
+        "id": 456,
+        "meta_data": {
+            "original_dataset": "bridge",
+            "original_width": 640,
+            "original_height": 480
+        },
+        "instruction": "reach for the carrot",
+        "points": [
+            [265.45454545454544, 120.0],
+            [275.1515151515152, 162.42424242424244],
+            [280.0, 213.33333333333331],
+            [280.0, 259.3939393939394]
+        ]
+    }
+]
