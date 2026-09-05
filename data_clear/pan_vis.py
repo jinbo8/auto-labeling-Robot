@@ -3,8 +3,12 @@ import os
 import cv2
 import numpy as np
 
+
+# 输入图像路径（平底锅原图）
 img_dir = '/home/jin/6t/item/auto-labeling-Robot/data_clear/image/pan.png'
+# affordance 标注 JSON（含 x/y/width/height）
 affordance_json = '/home/jin/6t/item/auto-labeling-Robot/data_clear/json/pan.json'
+# 可视化结果输出目录
 output_img_dir = '/home/jin/6t/item/auto-labeling-Robot/data_clear/res'
 
 os.makedirs(output_img_dir, exist_ok=True)
@@ -17,9 +21,11 @@ if isinstance(data, dict):
 for item in data:
     filepath = img_dir if os.path.isfile(img_dir) else os.path.join(img_dir, str(item['id']))
 
+    # 读取平底锅原图；读失败则直接报错，避免后面画框时崩掉
     image = cv2.imread(filepath)
     if image is None:
         raise FileNotFoundError(f"读不到图像: {filepath}")
+    # 后续画 affordance 矩形框用的颜色（BGR 蓝）和线宽
     color = (255, 0, 0)
     thickness = 2
 
